@@ -100,3 +100,36 @@ Just fix the bug and thats it. The user does not want to wait several minutes wh
 If you are still unsure about how to best leverage the technology or framework used in the code, feel free to search the web.
 </general-debugging-guidance>
 
+<common-serialization-error>
+**CRITICAL - Check for "'bytes' object has no attribute 'encode'" Error:**
+
+If you see an error like "'bytes' object has no attribute 'encode'", this is almost ALWAYS caused by manually encoding data to bytes before calling `self.produce()` in a custom Source.
+
+The problem occurs when code does this:
+```python
+# WRONG - DO NOT DO THIS:
+kafka_message_str = json.dumps(kafka_message)
+kafka_message_obj = kafka_message_str.encode('utf-8')  # Manual encoding
+self.produce(key=message_key, value=kafka_message_obj)  # Tries to encode bytes again!
+```
+
+The fix is to use `self.serialize()` instead:
+```python
+# CORRECT:
+serialized = self.serialize(key=message_key, value=kafka_message)
+self.produce(key=serialized.key, value=serialized.value)
+```
+
+**Why this happens:**
+- Custom Sources in Quix Streams have a default JSON serializer for values
+- When you pass already-encoded bytes to `self.produce()`, it tries to serialize them again
+- The serializer calls `.encode()` on the bytes object, which fails
+
+**How to fix it:**
+1. Remove any manual `json.dumps()` and `.encode()` calls
+2. Pass the raw Python dict/object to `self.serialize()`
+3. Use the serialized key and value from the returned object
+
+This is BY FAR the most common serialization error in custom Sources.
+</common-serialization-error>
+
