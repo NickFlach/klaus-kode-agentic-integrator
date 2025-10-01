@@ -140,10 +140,24 @@ class SandboxErrorHandler:
                     printer.print(f"\n💡 Recommendation: {ai_result.recommendation}")
                 
                 printer.print("="*60)
-                
+
                 # Return status based on AI analysis
                 if ai_result.success:
-                    return 'success'
+                    # Ask user to confirm the success determination
+                    from workflow_tools.core.questionary_utils import confirm
+                    printer.print("")
+                    user_agrees = confirm(
+                        "The log analysis determined that the run was a success. Do you agree?",
+                        default=True
+                    )
+
+                    if user_agrees:
+                        return 'success'
+                    else:
+                        # User disagrees with success determination, treat as error
+                        printer.print("📝 You've indicated that the run was not successful.")
+                        printer.print("   Treating this as an error case for debugging...")
+                        return 'error'
                 else:
                     # For failures, check confidence to decide between error and uncertain
                     if ai_result.confidence in ['high', 'medium']:
