@@ -109,6 +109,22 @@ Please set the appropriate type for each variable (note that the "Secret" type i
 7. **Testing**: When reading from a source, limit the output to 100 entries for initial testing
 
 8. **Debugging**: Add early print statements to show raw message structure
+
+9. **CRITICAL - Kafka Message Serialization**:
+   - When using custom Sources (subclassing `Source` from quixstreams), ALWAYS use `self.serialize()` to serialize messages before calling `self.produce()`
+   - NEVER manually encode messages to bytes (e.g., `json.dumps(data).encode('utf-8')`) - this will cause "'bytes' object has no attribute 'encode'" errors
+   - Correct pattern for custom Sources:
+     ```python
+     # CORRECT:
+     serialized = self.serialize(key=message_key, value=message_data)
+     self.produce(key=serialized.key, value=serialized.value)
+
+     # WRONG - DO NOT DO THIS:
+     value_bytes = json.dumps(message_data).encode('utf-8')  # This will fail!
+     self.produce(key=message_key, value=value_bytes)
+     ```
+   - The `self.serialize()` method handles all serialization automatically based on the topic's configured serializer
+   - By default, Quix Streams uses JSON serialization for values and bytes for keys
 </source-specific-requirements>
 
 <additional-rules>

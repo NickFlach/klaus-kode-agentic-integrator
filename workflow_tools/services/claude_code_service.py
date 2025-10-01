@@ -73,7 +73,7 @@ class ClaudeCodeService:
         if not self.claude_config:
             printer.print("⚠️ Warning: Claude Code SDK config not found in models.yaml, using defaults")
             self.claude_config = {
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-4-5-20250929",
                 "max_turns": 10,
                 "max_thinking_tokens": 8000,
                 "allowed_tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep","MultiEdit"],
@@ -646,14 +646,14 @@ class ClaudeCodeService:
             cwd=main_workflow_dir,  # Use main workflow directory as working directory
             system_prompt=system_prompt,
             max_turns=self.claude_config.get("max_turns", 10),
-            model=self.claude_config.get("model", "claude-sonnet-4-20250514")
+            model=self.claude_config.get("model", "claude-sonnet-4-5-20250929")
         )
         
         # Debug: Log Claude Code SDK configuration
         printer.print_debug(f"🔍 DEBUG: Claude Code SDK configuration:")
         printer.print_debug(f"   - Working directory (cwd): {main_workflow_dir}")
         printer.print_debug(f"   - Target app path (relative): {relative_app_path}")
-        printer.print_debug(f"   - Model: {self.claude_config.get('model', 'claude-sonnet-4-20250514')}")
+        printer.print_debug(f"   - Model: {self.claude_config.get('model', 'claude-sonnet-4-5-20250929')}")
         printer.print_debug(f"   - Max turns: {self.claude_config.get('max_turns', 10)}")
         printer.print_debug(f"   - Allowed tools: {self.claude_config.get('allowed_tools', ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep'])}")
         printer.print_debug(f"   - Permission mode: {self.claude_config.get('permission_mode', 'acceptEdits')}")
@@ -709,6 +709,9 @@ class ClaudeCodeService:
                 printer.print_debug("✅ Successfully read updated main.py")
             else:
                 printer.print("❌ Error: main.py not found after generation")
+                printer.print(f"   Expected location: {main_py_path}")
+                printer.print("   Claude may have created files in a different location.")
+                printer.print("   Please check the Claude Code output above for file locations.")
                 return None, None
             
             # Read the updated app.yaml to get environment variables
@@ -858,14 +861,58 @@ class ClaudeCodeService:
             elif hasattr(self.context.code_generation, 'connection_test_code'):
                 schema_analysis = f"## Connection Test Code:\n```python\n{self.context.code_generation.connection_test_code}\n```"
         
-        debug_prompt = load_task_prompt(
-            "claude_code_debug", 
-            error_logs=error_logs,
-            app_path=relative_app_path,
-            schema_analysis=schema_analysis,
-            workflow_type=workflow_type,
-            previous_thoughts=previous_thoughts
-        )
+        # Write error logs to a file to avoid "Argument list too long" error
+        error_log_file = os.path.join(app_dir, "error_logs.txt")
+        with open(error_log_file, 'w', encoding='utf-8') as f:
+            f.write(error_logs)
+        printer.print_debug(f"📝 Wrote {len(error_logs)} characters of error logs to {error_log_file}")
+
+        # Write schema analysis to file if it exists and is large
+        schema_file_reference = ""
+        if schema_analysis and len(schema_analysis) > 1000:
+            schema_file = os.path.join(app_dir, "schema_analysis.md")
+            with open(schema_file, 'w', encoding='utf-8') as f:
+                f.write(schema_analysis)
+            schema_file_reference = f"{relative_app_path}/schema_analysis.md"
+            printer.print_debug(f"📝 Wrote {len(schema_analysis)} characters of schema analysis to {schema_file}")
+        elif schema_analysis:
+            # Small enough to include directly
+            schema_file_reference = None
+
+        # Create a simpler debug prompt that references the files
+        debug_prompt_text = f"""The application in {relative_app_path} is encountering errors. Please help fix them.
+
+ERROR LOGS:
+The error logs have been saved to: {relative_app_path}/error_logs.txt
+Please read this file first to understand the errors.
+
+"""
+        if schema_file_reference:
+            debug_prompt_text += f"""SCHEMA/DATA ANALYSIS:
+Additional context about the expected data structure is available in: {schema_file_reference}
+This may help you understand what the application should be doing.
+
+"""
+        elif schema_analysis:
+            debug_prompt_text += f"""SCHEMA/DATA CONTEXT:
+{schema_analysis}
+
+"""
+
+        debug_prompt_text += f"""WORKFLOW TYPE: {workflow_type}
+
+TASK:
+1. First, read the error logs from {relative_app_path}/error_logs.txt
+2. Analyze the main.py file in {relative_app_path}/
+3. Identify and fix the issues
+4. Ensure the application can run without errors
+
+Please fix the code to resolve these errors."""
+
+        if previous_thoughts:
+            debug_prompt_text += f"\n\nPREVIOUS DEBUG ATTEMPTS:\n{previous_thoughts}"
+
+        debug_prompt = debug_prompt_text
         debug_system_prompt = load_task_prompt(
             "claude_code_debug_system_prompt",
             app_path=relative_app_path
@@ -894,14 +941,14 @@ class ClaudeCodeService:
             cwd=main_workflow_dir,  # Use main workflow directory as working directory
             system_prompt=debug_system_prompt,
             max_turns=debug_config.get("max_turns", 5),
-            model=debug_config.get("model", self.claude_config.get("model", "claude-sonnet-4-20250514"))
+            model=debug_config.get("model", self.claude_config.get("model", "claude-sonnet-4-5-20250929"))
         )
         
         # Debug: Log Claude Code SDK configuration for debugging
         printer.print_debug(f"🔍 DEBUG: Claude Code SDK debug configuration:")
         printer.print_debug(f"   - Working directory (cwd): {main_workflow_dir}")
         printer.print_debug(f"   - Target app path (relative): {relative_app_path}")
-        printer.print_debug(f"   - Model: {debug_config.get('model', self.claude_config.get('model', 'claude-sonnet-4-20250514'))}")
+        printer.print_debug(f"   - Model: {debug_config.get('model', self.claude_config.get('model', 'claude-sonnet-4-5-20250929'))}")
         printer.print_debug(f"   - Max turns: {debug_config.get('max_turns', 5)}")
         printer.print_debug(f"   - Allowed tools: {self.claude_config.get('allowed_tools', ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep'])}")
         printer.print_debug(f"   - Permission mode: {self.claude_config.get('permission_mode', 'acceptEdits')}")
@@ -981,7 +1028,15 @@ class ClaudeCodeService:
                 return None
                 
         except Exception as e:
-            printer.print(f"❌ Error during Claude Code debugging: {str(e)}")
+            error_str = str(e)
+            if "Argument list too long" in error_str:
+                printer.print("❌ Error: Command arguments too long for system to handle.")
+                printer.print("   This is a known issue when dealing with very large log files.")
+                printer.print("   The error logs have been saved to: " + os.path.join(app_dir, "error_logs.txt"))
+                printer.print("   You can manually review and fix the issues, or try with shorter logs.")
+            else:
+                printer.print(f"❌ Error during Claude Code debugging: {error_str}")
+
             if self.debug_mode:
                 import traceback
                 printer.print(traceback.format_exc())
@@ -1356,7 +1411,7 @@ This is a connection test only - do NOT integrate with Quix Streams or Kafka yet
             cwd=main_workflow_dir,
             system_prompt=system_prompt,
             max_turns=self.claude_config.get("max_turns", 10),
-            model=self.claude_config.get("model", "claude-sonnet-4-20250514")
+            model=self.claude_config.get("model", "claude-sonnet-4-5-20250929")
         )
         
         # Print prompts for debugging
@@ -1406,7 +1461,7 @@ This is a connection test only - do NOT integrate with Quix Streams or Kafka yet
             
             printer.print("=" * 60)
             printer.print(f"✅ Claude Code completed (Cost: ${total_cost:.4f})")
-            
+
             # Read the modified main.py
             main_py_path = os.path.join(app_dir, "main.py")
             if os.path.exists(main_py_path):
@@ -1415,6 +1470,9 @@ This is a connection test only - do NOT integrate with Quix Streams or Kafka yet
                 printer.print("✅ Successfully read updated main.py")
             else:
                 printer.print("❌ Error: main.py not found after generation")
+                printer.print(f"   Expected location: {main_py_path}")
+                printer.print("   Claude may have created files in a different location.")
+                printer.print("   Please check the Claude Code output above for file locations.")
                 return None, None
             
             # Read the updated app.yaml to get environment variables

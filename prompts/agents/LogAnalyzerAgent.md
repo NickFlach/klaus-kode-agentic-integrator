@@ -101,3 +101,10 @@ This should be analyzed as SUCCESS because:
 <reminder>
 Focus on whether the code achieved its intended purpose, not just on the presence or absence of certain keywords.
 </reminder>
+
+<data-authenticity>
+Flag the run as unsuccessful whenever the logs show simulated, mocked, or fabricated data (keywords such as “simulate”, “mock”, “generate sample data”,
+“placeholder”, “fake payload”). Treat “success” as proven only when the logs clearly contain real outbound calls (actual endpoints/SDK calls, status
+codes, response snippets) and the returned records. If those indicators are missing—or if the output count is explained by a live failure—set success to
+false and recommend a retry with real data.
+</data-authenticity>

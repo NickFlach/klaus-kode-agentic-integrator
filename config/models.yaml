@@ -1,6 +1,6 @@
 models:
   claude_code_sdk:
-    model: claude-sonnet-4-20250514
+    model: claude-sonnet-4-5-20250929
     max_turns: 50
     allowed_tools:
     - Read
@@ -15,7 +15,7 @@ models:
     permission_mode: acceptEdits
     debug:
       max_turns: 50
-      model: claude-sonnet-4-20250514
+      model: claude-sonnet-4-5-20250929
     sink: # No longer used, goes directly to claude 
       provider: anthropic
       model: claude-opus-4-1-20250805
@@ -63,8 +63,8 @@ models:
     bypass_litellm: false
   log_analysis:
     provider: anthropic
-    model: claude-sonnet-4-0
-    fallback: claude-sonnet-4-0
+    model: claude-sonnet-4-5-20250929
+    fallback: claude-sonnet-4-5-20250929
     bypass_litellm: false
 parameters:
   temperature:

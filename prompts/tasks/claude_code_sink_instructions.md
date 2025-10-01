@@ -129,6 +129,26 @@ description: "Date format (e.g., YYYY-MM-DD) for API requests"
 7. **Testing**: Include `app.run(count=10, timeout=20)` for initial testing
 
 8. **Debugging**: Add early print statements to show raw message structure
+
+9. **CRITICAL - Kafka Message Deserialization**:
+   - Quix Streams handles deserialization automatically based on the topic configuration
+   - NEVER manually decode message values (e.g., `json.loads(value.decode('utf-8'))`)
+   - The value you receive in your sink is already deserialized based on the topic's `value_deserializer`
+   - By default, Quix Streams uses JSON deserialization for message values
+   - Correct pattern:
+     ```python
+     # CORRECT - value is already a Python dict:
+     def write(self, batch: SinkBatch):
+         for item in batch:
+             data = item.value  # Already deserialized!
+             self._write_to_db(data)
+
+     # WRONG - DO NOT DO THIS:
+     def write(self, batch: SinkBatch):
+         for item in batch:
+             data = json.loads(item.value.decode('utf-8'))  # Unnecessary!
+     ```
+   - If you need a different deserializer, configure it on the topic: `app.topic(name="input", value_deserializer="json")`
 </sink-specific-requirements>
 
 <common-gotchas>

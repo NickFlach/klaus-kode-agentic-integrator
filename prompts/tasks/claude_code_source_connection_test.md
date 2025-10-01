@@ -98,3 +98,10 @@ pandas>=1.5.0
 openpyxl>=3.0.9
 </dependency-examples>
 </dependencies-and-extras>
+
+<forbidden-sample-data>
+- You must only return data retrieved from live calls to the target system during this run.
+- Do not invent, mock, simulate, or reuse cached sample data—if the API returns zero records or errors, report that outcome exactly.
+- Any helper that fabricates “example” rows, random payloads, or placeholder structures is forbidden.
+- If you cannot reach the system or parse its response, stop and surface the real failure; never fill in artificial records.
+</forbidden-sample-data>

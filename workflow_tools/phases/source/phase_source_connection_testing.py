@@ -106,9 +106,33 @@ class SourceConnectionTestingPhase(BasePhase):
             
             printer.print("")
             
-            # Step 1: Generate connection test code
-            if not await self._generate_connection_test_code():
-                return PhaseResult(success=False, message="Phase failed")
+            # Step 1: Generate connection test code (with retry logic)
+            generation_success = False
+            while not generation_success:
+                if not await self._generate_connection_test_code():
+                    # Ask user if they want to retry or go back
+                    from workflow_tools.core.questionary_utils import select
+                    printer.print("")
+                    printer.print("⚠️ Connection test generation failed.")
+                    choices = [
+                        {'name': '🔄 Retry generating connection test', 'value': 'retry'},
+                        {'name': '← Go back to requirements step', 'value': 'back'},
+                        {'name': '❌ Abort workflow', 'value': 'abort'}
+                    ]
+                    action = select("What would you like to do?", choices, show_border=True)
+
+                    if action == 'retry':
+                        # Clear any partial state and retry
+                        self.context.code_generation.connection_test_code = None
+                        printer.print("🔄 Retrying connection test generation...")
+                        # Loop will continue
+                    elif action == 'back':
+                        raise NavigationBackRequest("User requested to go back to requirements")
+                    else:  # abort
+                        return PhaseResult(success=False, message="Phase aborted by user")
+                else:
+                    # Generation succeeded
+                    generation_success = True
             
             # Step 2: Run connection test and collect samples
             if not await self._run_connection_test():
